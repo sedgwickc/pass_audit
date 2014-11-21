@@ -82,6 +82,7 @@ int main(int argc, char* argv[]){
 	//close(fd_hashes);
 	free(fn_dictionary);
 	free(fn_hashes);
+	free( hash );
 //	buff_free();
 	return 0;
 }

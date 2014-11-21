@@ -1,10 +1,10 @@
 CC=gcc
 
-CFLAGS= -g -Wall -std=c99 -DMEMWATCH -DMW_STDIO -DMW_PTHREADS -c -D_POSIX_SOURCE
+CFLAGS= -g -Wall -std=c99 -DMEMWATCH -DMW_STDIO -DMW_PTHREADS -c
 
-CFLAGS_DEBUG=-Wall -std=c99 -DMEMWATCH -DMW_STDIO -DMW_PTHREADS -c -g -D_POSIX_SOURCE -DDEBUG 
+CFLAGS_DEBUG=-Wall -std=c99 -DMEMWATCH -DMW_STDIO -DMW_PTHREADS -c -g -DDEBUG 
 
-CFLAGS_LINK=-lcrypto -pthread
+CFLAGS_LINK=-lcrypt -pthread
 
 BCRYPT_FLAGS=-g -c -W -Wall -Wbad-function-cast -Wcast-align -Wcast-qual -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wundef -Wpointer-arith -O2 -fomit-frame-pointer -funroll-loops
 
