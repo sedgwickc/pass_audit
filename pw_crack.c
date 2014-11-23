@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include "pass_audit.h"
-//#include "bound_buff.h"
+#include "bound_buff.h"
 #include "memwatch.h"
 
 /* 
@@ -24,12 +24,12 @@
 
 int main(int argc, char* argv[]){
 
-//	pthread_t workers[N_WORKERS];
-//	buff_init( N_WORKERS );
-//	
-//	for( int i = 0; i < num_workers; i++){
-//		workers[i] = buff_add_worker((long)i);
-//	}
+	pthread_t workers[N_WORKERS];
+	buff_init( N_WORKERS );
+	
+	for( int i = 0; i < num_workers; i++){
+		workers[i] = buff_add_worker( (long)i );
+	}
 
 	int fd_hashes, status, offset, i;
 	char *hash = calloc ( S_HASH, sizeof( char ) );
@@ -37,7 +37,8 @@ int main(int argc, char* argv[]){
 	struct stat s_hashes;
 	char *fn_dictionary = calloc ( S_FPATH, sizeof(char) );
 	char *fn_hashes = calloc (S_FPATH, sizeof(char) );
-	Hashes hashes;
+	Hashes hashes = NULL;
+	Hashes_Init( &hashes );
 	strncpy( fn_dictionary, argv[1], S_FPATH );
 	strncpy( fn_hashes, argv[2], S_FPATH );
 
@@ -53,10 +54,8 @@ int main(int argc, char* argv[]){
 	while(  sscanf(data_hash, "%s\n%n", hash, &offset) != EOF ){
 		data_hash += offset; 
 
-		printf("%s:", hash);
-		fflush( stdout );
-		compare( fn_dictionary, hash );
-		
+		//Hash_Compare( fn_dictionary, hash );
+
 		if( i < N_HASHES ){
 			strncpy(hashes[i], hash, S_HASH);
 			i++;
@@ -65,24 +64,25 @@ int main(int argc, char* argv[]){
 		if( i == N_HASHES ){
 			i = 0; 
 		}
+
+		produce( &hashes );
 	}
 
+	buff_pdone();
+  
+	for( int i = 0; i < num_workers; i++){
+		pthread_join(workers[i], (void *)&status );
+		if( status != 0 ){
+			printf("ERROR: %s\n", strerror( status ) );
+		}
+	}
 
-//	buff_pdone();
-	
-//	for( int i = 0; i < num_workers; i++){
-//		pthread_join(workers[i], (void *)&status );
-//		if( status != 0 ){
-//			printf("ERROR: %s\n", strerror( status ) );
-//		}
-//	}
-//
 	munmap( data_hash, s_hashes.st_size ); 
 
-	//close(fd_hashes);
-	free(fn_dictionary);
-	free(fn_hashes);
+	free( fn_dictionary );
+	free( fn_hashes );
 	free( hash );
-//	buff_free();
+	Hashes_Free( &hashes );
+	buff_free();
 	return 0;
 }

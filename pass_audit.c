@@ -13,10 +13,30 @@
 #include "bcrypt/bcrypt.h"
 #include "memwatch.h"
 
-void compare( char *dict, char *hash_in ){
+void Hashes_Init( Hashes *h ){
+	*h = malloc( sizeof( char *) * N_HASHES );
+
+	for(int i = 0; i < N_HASHES; i++){
+		(*h)[i] = calloc(S_HASH, sizeof( char ) );
+	}
+}
+
+void Hashes_Free( Hashes *h ){
+	for(int i = 0; i < N_HASHES; i++ ){
+		free( (*h)[i] );
+	}
+	free( *h ); 
+}
+
+void Hashes_Copy( Hashes *src, Hashes *dest ){
+	for( int i = 0; i < N_HASHES; i++ ){
+		strncpy( (*dest)[i], (*src)[i], S_HASH );
+	}
+}
+
+void Hash_Compare( char *dict, char *hash_in ){
 
 	char hash_out[BCRYPT_HASHSIZE];
-	char pass[21];
 	char *data_dict, *md5_res, word[S_WORD];
 	struct crypt_data md5_data;
 	int fd, ret, status, offset = 0;
@@ -24,7 +44,6 @@ void compare( char *dict, char *hash_in ){
 	fd= open(dict, O_RDONLY );
 	assert( fd != -1);
 
-	memset(pass, 0, 21);
 	memset(hash_out, 0, BCRYPT_HASHSIZE);
 	
 	status = stat(dict, &s_dict);
@@ -34,18 +53,19 @@ void compare( char *dict, char *hash_in ){
 	assert ( data_dict != MAP_FAILED );
 	
 	md5_res = NULL;
+	md5_data.initialized = 0;
 	while(  sscanf(data_dict, "%s\n%n", word, &offset) != EOF ){
 		data_dict += offset; 
 		
 		if( hash_in[1] == '1' ){
-			md5_data.initialized = 0;
-			printf("word: %s, hash_in: %s\n", word, hash_in);
+			/*
 			md5_res = crypt_r( word, hash_in, &md5_data );
 			assert( md5_res != NULL );
-			md5_res = crypt( "test", "$1$G9tXgHBN$ZsSy3hyxQ4sz74oppF9WP0");
 			printf("%s\n", md5_res);
 			memset( hash_out, 0, BCRYPT_HASHSIZE );
 			strncpy( hash_out, md5_res, BCRYPT_HASHSIZE );
+			*/
+			strncpy( hash_out, "filler", BCRYPT_HASHSIZE );
 		}else if( hash_in[1] == '2' && hash_in[2] == 'a' ){
 
 			ret = bcrypt_hashpw( word, hash_in, hash_out );
@@ -58,7 +78,7 @@ void compare( char *dict, char *hash_in ){
 			close( fd );
 			return;
 		}
-
+		
 		memset( word, 0, S_WORD );
 	}
 

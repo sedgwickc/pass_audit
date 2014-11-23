@@ -8,21 +8,17 @@
  */
 #define _XOPEN_SOURCE 699 
 #define S_BBUFF 50
-#define N_HASHES 20 
 #define S_FPATH 64
-#define S_HASH 64
-#define S_WORD 80
 #define N_WORKERS 5
 
+#include <semaphore.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <openssl/sha.h>
 
 /* 
  * buffer elements are a set number N_HASHES of hashes
  *
  */
-
 
 typedef struct {
 	pthread_t thread_id;
@@ -46,15 +42,15 @@ int buff_init(int num_workers);
 
 pthread_t buff_add_worker(long index);
 
-void buff_fill( File *f );
+void buff_fill( Hashes *f );
 
-void buff_get( Hashes **data );
+void buff_get( Hashes *data );
 
 void produce(Hashes *data);
 
 void *consume( void * );
 
-void buff_proc( Hashes *f);
+void buff_proc( Hashes f);
 
 void buff_pdone();
 

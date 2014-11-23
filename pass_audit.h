@@ -6,8 +6,11 @@
 #define S_HASH 64
 #define S_WORD 80
 
-typedef char Hashes[N_HASHES][S_HASH];
+typedef char** Hashes;
 
-void compare( char *dict, char *hash );
+void Hashes_Init( Hashes *h );
+void Hashes_Free( Hashes *h );
+void Hashes_Copy( Hashes *src, Hashes *dest );
+void Hash_Compare( char *dict, char *hash );
 
 #endif

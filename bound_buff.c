@@ -11,10 +11,10 @@
 #include <assert.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include <openssl/sha.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include "pass_audit.h"
 #include "bound_buff.h"
 #include "memwatch.h"
 
@@ -31,22 +31,25 @@ sem_t empty;
 sem_t full; 
 sem_t mutex;
 
-void hash_batch_copy( Hashes *src, Hashes *dest ){
-	for( int i = 0; i < N_HASHES; i++ ){
-		strncpy( dest[i], src[i], S_HASH );
-	}
-}
-
 int buff_init(int nw){
 
 	num_workers = (int)nw;
 	
-	sem_init(&empty, 0, S_BBUFF); // S_BBUFF buffers are empty to begin with...
-	sem_init(&full, 0, 0); //  0 are full
-	sem_init(&mutex, 0, 1); // mutex=1 because it is a lock
+	sem_init( &empty, 0, S_BBUFF ); // S_BBUFF buffers are empty to begin with...
+	sem_init( &full, 0, 0 ); //  0 are full
+	sem_init( &mutex, 0, 1 ); // mutex=1 because it is a lock
 
-	buffer = malloc(sizeof(Hashes) * S_BBUFF );
+	buffer = malloc( sizeof ( char * ) * S_BBUFF );
 	assert( buffer != NULL );
+
+	for( int i = 0; i < S_BBUFF; i++){
+		buffer[i] = malloc( sizeof( char *) * N_HASHES );
+		assert( buffer[i] != NULL );
+
+		for(int j = 0; j < N_HASHES; j++ ){
+			buffer[i][j] = calloc( S_HASH, sizeof( char ) );
+		}
+	}
 
 	workers = malloc( sizeof(Thread*) * num_workers );
 	assert( workers != NULL );
@@ -54,11 +57,9 @@ int buff_init(int nw){
 		workers[i] = malloc( sizeof(Thread) );
 		assert( workers[i] != NULL );
 
-		workers[i]->num_files = 0;
+		workers[i]->num_hashes = 0;
 	}
 	
-	log_mess = calloc(S_LOGMESS, sizeof(char) );
-
 	fillptr = 0;
 	useptr = 0;
 	numfill = 0;
@@ -74,16 +75,15 @@ pthread_t buff_add_worker(long index){
 }
 
 void buff_fill(Hashes *data){
-	for( int i = 0; i < N_HASHES; i++ ){
-		strncpy( buffer[i], data, S_HASH );
-	}
+	assert( data != NULL);
+	Hashes_Copy( &buffer[fillptr], data );
 	numfill++;
 	fillptr = (fillptr + 1) % S_BBUFF;
 }
-
-void buff_get(Hashes **data){
-	assert( *data != NULL);
-	hash_batch_copy( *data, buffer[useptr] );
+// buffer not getting hashes?
+void buff_get(Hashes *data){
+	assert( data != NULL);
+	Hashes_Copy( data, &buffer[useptr] );
 	useptr = (useptr + 1) % S_BBUFF;
 	numfill--;
 }
@@ -96,32 +96,23 @@ void produce(Hashes *data){
 	sem_post( &full );
 }
 
+//race condition: consumers get stuck waiting
 void *consume(void *arg){
 
-	char t_id[20];
-	char t_files[20];
-	Hashes hashes = malloc(N_HASHES, sizeof( char *) );
-
-	for(int i = 0; i < N_HASHES; i++){
-		hashes[i] = calloc(S_HASH, sizeof( char ) );
-	}
+	Hashes hashes = NULL;
+	Hashes_Init( &hashes );	
 
 	while( 1 ){
 		sem_wait ( &full );
 		sem_wait ( &mutex );
-		memset(file->filename, 0, S_FPATH );
-		memset(file->checksum, 0, S_CHKSUM );
-		buff_get(&hashes)
+		buff_get( &hashes );
 		sem_post ( &mutex );
-		if( strncmp( file->filename, "DONE", S_FPATH ) == 0 ){
-			if( file != NULL ){
-				free( file->filename );
-				free( file->checksum );
-				free( file );
-			}
+		if( pdone > 0 )//strncmp( hashes[0], "DONE", S_HASH ) == 0)
+		{
+			Hashes_Free( &hashes );		
 			return NULL;
 		}
-		buff_proc( &hashes );
+		buff_proc( hashes );
 		workers[(long)arg]->num_hashes++;
 #ifdef DEBUG
 		printf("t_index: %ld, hash_no: %d\n", (long)arg, workers[(long)arg]->num_hashes);
@@ -129,53 +120,56 @@ void *consume(void *arg){
 		sem_post( &empty );
 
 	}
+	Hashes_Free( &hashes );		
 	return NULL;
 }
 
-void buff_proc( Hashes *data){
-	printf("processing hashes....");
-	return;
+void buff_proc( Hashes data ){
+	for( int i = 0; i < N_HASHES; i++ ){
+		printf("%s: ", data[i] );
+		// calc hash and compare, print password if found
+		printf("\n");
+	}
 }
 
 void buff_pdone(){
-	Hashes done;
+	Hashes done = NULL;
+	Hashes_Init( &done );
+
 	for( int i = 0; i < N_HASHES; i++ ){
-		done[i] = "done";
+		strncpy(done[i], "DONE", S_HASH);
 	}
 
 	sem_wait( &empty );
 	for(int i = 0; i < S_BBUFF; i++){
-		sem_wait( &mutex );
-		produce(&done);
-		sem_post( &mutex );
+		produce( &done );
+		sem_post( &full );
 	}
-	sem_post( &full );
 
 	sem_wait( &mutex );
 	pdone++;
-	sem_post( &mustex );
+	sem_post( &mutex );
+
+	Hashes_Free( &done );
 }
 
 void buff_free(){
 	
-	sem_destroy( full );
-	sem_destroy( empty );
-	sem_destroy( mutex );
+	sem_destroy( &full );
+	sem_destroy( &empty );
+	sem_destroy( &mutex );
 
-	for(int i = 0; i < S_BBUFF; i++){
-		free(buffer[i]->filename);
-		free(buffer[i]->checksum);
-		free(buffer[i]);
+	for( int i = 0; i < S_BBUFF; i++){
+		for(int j = 0; j < N_HASHES; j++ ){
+			free( buffer[i][j] );
+		}
+		free( buffer[i] );
 	}
+	free( buffer );
 
 	for( int i = 0; i < num_workers; i++ ){
-		free(workers[i]->data->checksum);
-		free(workers[i]->data->filename);
-		free(workers[i]->data);
 		free(workers[i]);
 	}
 	
-	free( log_mess );
 	free( workers );
-	free( buffer );
 }
