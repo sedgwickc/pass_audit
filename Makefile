@@ -18,7 +18,7 @@ bcrypt_hash: blowfish.o bcrypt.o bcrypt_hash.o bcrypt/bcrypt.a
 bcrypt_verify: blowfish.o bcrypt.o bcrypt_verify.o bcrypt/bcrypt.a
 	$(CC) $^ -o $@
 
-pw_crack_debug: pw_crack_db.o pass_audit.o bound_buff.o blowfish.o bcrypt.o bcrypt/bcrypt.a memwatch_db.o
+pw_crack_debug: pw_crack_db.o pass_audit_db.o bound_buff_db.o blowfish.o bcrypt.o bcrypt/bcrypt.a memwatch.o
 	$(CC) $(CFLAGS_LINK) $^ -o $@
 
 pw_crack: pw_crack.o memwatch.o

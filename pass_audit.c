@@ -13,51 +13,60 @@
 #include "bcrypt/bcrypt.h"
 #include "memwatch.h"
 
-void Hashes_Init( Hashes *h ){
+Dict *dict;
+
+void Hashes_Init( Hashes *h )
+{
 	*h = malloc( sizeof( char *) * N_HASHES );
 
-	for(int i = 0; i < N_HASHES; i++){
+	for(int i = 0; i < N_HASHES; i++)
+	{
 		(*h)[i] = calloc(S_HASH, sizeof( char ) );
 	}
 }
 
-void Hashes_Free( Hashes *h ){
-	for(int i = 0; i < N_HASHES; i++ ){
+void Hashes_Free( Hashes *h )
+{
+	for(int i = 0; i < N_HASHES; i++ )
+	{
 		free( (*h)[i] );
 	}
 	free( *h ); 
 }
 
-void Hashes_Copy( Hashes *src, Hashes *dest ){
-	for( int i = 0; i < N_HASHES; i++ ){
+void Hashes_Copy( Hashes *dest, Hashes *src )
+{
+	for( int i = 0; i < N_HASHES; i++ )
+	{
 		strncpy( (*dest)[i], (*src)[i], S_HASH );
 	}
 }
 
-void Hash_Compare( char *dict, char *hash_in ){
+void Pass_Crack( char *hash_in )
+{
+	if( dict == NULL )
+	{
+		printf( "ERROR: Dictionary not initialized. Terminating...\n" );
+		return;
+	}
+	else if( strlen( hash_in ) == 0 )
+	{
+		return;
+	}
 
 	char hash_out[BCRYPT_HASHSIZE];
-	char *data_dict, *md5_res, word[S_WORD];
+	char *md5_res;
 	struct crypt_data md5_data;
-	int fd, ret, status, offset = 0;
-	struct stat s_dict;
-	fd= open(dict, O_RDONLY );
-	assert( fd != -1);
-
+	int ret;
 	memset(hash_out, 0, BCRYPT_HASHSIZE);
-	
-	status = stat(dict, &s_dict);
-	assert( status != -1 );
-
-	data_dict = mmap(0, s_dict.st_size, PROT_READ, MAP_SHARED, fd, 0);
-	assert ( data_dict != MAP_FAILED );
 	
 	md5_res = NULL;
 	md5_data.initialized = 0;
-	while(  sscanf(data_dict, "%s\n%n", word, &offset) != EOF ){
-		data_dict += offset; 
-		
-		if( hash_in[1] == '1' ){
+	printf( "%s:", hash_in );
+	for( int i = 0; i < dict->num_words; i++ )
+	{
+		if( hash_in[1] == '1' )
+		{
 			/*
 			md5_res = crypt_r( word, hash_in, &md5_data );
 			assert( md5_res != NULL );
@@ -66,23 +75,96 @@ void Hash_Compare( char *dict, char *hash_in ){
 			strncpy( hash_out, md5_res, BCRYPT_HASHSIZE );
 			*/
 			strncpy( hash_out, "filler", BCRYPT_HASHSIZE );
-		}else if( hash_in[1] == '2' && hash_in[2] == 'a' ){
-
-			ret = bcrypt_hashpw( word, hash_in, hash_out );
+		}
+		else if( hash_in[1] == '2' && hash_in[2] == 'a' )
+		{
+			ret = bcrypt_hashpw( dict->words[i], hash_in, hash_out );
 			assert( ret == 0 );
 		}
-
-		if( strncmp( hash_in, hash_out, BCRYPT_HASHSIZE ) == 0 ){
-			printf( "%s\n", word );
-			munmap( data_dict, s_dict.st_size ); 
-			close( fd );
+		if( strncmp( hash_in, hash_out, BCRYPT_HASHSIZE ) == 0 )
+		{
+			printf( "%s", dict->words[i] );
 			return;
 		}
-		
-		memset( word, 0, S_WORD );
+	}
+	printf( "\n" );
+}
+
+void Dict_Init( char *file )
+{
+#ifdef DEBUG
+	printf("Initializing Dictionary.\n");
+#endif
+	dict = malloc( sizeof( Dict ) );
+	dict->num_words = N_WORDS;
+	dict->words = malloc( dict->num_words * sizeof( char *) );
+	assert( dict->words != NULL);
+	Dict_Set( file );
+}
+
+void Dict_Set( char *file )
+{
+	if( dict == NULL )
+	{
+		printf("ERROR: Dictionary not initialized.\n");
+		return;
 	}
 
-	munmap( data_dict, s_dict.st_size ); 
-	close( fd );
+	int fd, status, offset = 0, word_ptrs, word_cnt;
+	char *data_dict, word[S_WORD];
+	struct stat s_dict;
 
+	fd = open(file, O_RDONLY | O_RSYNC );
+	assert( fd != -1);
+
+	status = stat(file, &s_dict);
+	assert( status != -1 );
+
+	data_dict = mmap(0, s_dict.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	assert ( data_dict != MAP_FAILED );
+
+	word_cnt = 0;
+	word_ptrs = N_WORDS;
+
+#ifdef DEBUG
+	printf("Filling Dictionary with words from %s.\n", file);
+#endif
+	while(  sscanf(data_dict, "%s\n%n", word, &offset) != EOF )
+	{
+		data_dict += offset;
+		if( word_cnt >= dict->num_words )
+		{
+			word_ptrs += N_WORDS;
+			dict->words = realloc( dict->words, word_ptrs );
+			assert( dict->words != NULL );
+		}
+		
+		dict->words[word_cnt] = calloc( S_WORD, sizeof( char ) );
+		assert( dict->words[word_cnt] != NULL);
+		strncpy( dict->words[word_cnt], word, S_WORD );
+		word_cnt++;
+	}
+	dict->num_words = word_cnt;
+
+}
+
+Dict *Dict_Get()
+{
+	return dict;
+}
+
+void Dict_Free()
+{
+	if( dict == NULL )
+	{
+		printf("ERROR: Dictionary not initialized. Terminating...\n");
+		return;
+	}
+
+	for( int i = 0; i < dict->num_words; i++ )
+	{
+		free( dict->words[i] );
+	}
+	free( dict->words );
+	free( dict );
 }

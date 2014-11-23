@@ -50,7 +50,7 @@ void produce(Hashes *data);
 
 void *consume( void * );
 
-void buff_proc( Hashes f);
+void buff_proc( Hashes *f);
 
 void buff_pdone();
 

@@ -39,15 +39,16 @@ int buff_init(int nw){
 	sem_init( &full, 0, 0 ); //  0 are full
 	sem_init( &mutex, 0, 1 ); // mutex=1 because it is a lock
 
-	buffer = malloc( sizeof ( char * ) * S_BBUFF );
+	buffer = malloc( sizeof ( Hashes ) * S_BBUFF );
 	assert( buffer != NULL );
 
 	for( int i = 0; i < S_BBUFF; i++){
-		buffer[i] = malloc( sizeof( char *) * N_HASHES );
+		buffer[i] = malloc( sizeof( char * ) * N_HASHES );
 		assert( buffer[i] != NULL );
-
+		
 		for(int j = 0; j < N_HASHES; j++ ){
 			buffer[i][j] = calloc( S_HASH, sizeof( char ) );
+			assert( buffer[i][j] != NULL );
 		}
 	}
 
@@ -76,10 +77,15 @@ pthread_t buff_add_worker(long index){
 
 void buff_fill(Hashes *data){
 	assert( data != NULL);
-	Hashes_Copy( &buffer[fillptr], data );
+	Hashes_Copy( &(buffer[fillptr]), data );
+			for( int h = 0; h < N_HASHES; h++ )
+			{
+				printf(" [%d] %s\n", h, (*data)[h] );
+			}
 	numfill++;
 	fillptr = (fillptr + 1) % S_BBUFF;
 }
+
 // buffer not getting hashes?
 void buff_get(Hashes *data){
 	assert( data != NULL);
@@ -107,28 +113,27 @@ void *consume(void *arg){
 		sem_wait ( &mutex );
 		buff_get( &hashes );
 		sem_post ( &mutex );
+		sem_post( &empty );
 		if( pdone > 0 )//strncmp( hashes[0], "DONE", S_HASH ) == 0)
 		{
 			Hashes_Free( &hashes );		
 			return NULL;
 		}
-		buff_proc( hashes );
+		buff_proc( &hashes );
 		workers[(long)arg]->num_hashes++;
 #ifdef DEBUG
 		printf("t_index: %ld, hash_no: %d\n", (long)arg, workers[(long)arg]->num_hashes);
 #endif
-		sem_post( &empty );
 
 	}
 	Hashes_Free( &hashes );		
 	return NULL;
 }
 
-void buff_proc( Hashes data ){
+void buff_proc( Hashes *data ){
 	for( int i = 0; i < N_HASHES; i++ ){
-		printf("%s: ", data[i] );
+		Pass_Crack( (*data)[i] );
 		// calc hash and compare, print password if found
-		printf("\n");
 	}
 }
 
