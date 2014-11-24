@@ -97,7 +97,7 @@ void Dict_Init( char *file )
 #endif
 	dict = malloc( sizeof( Dict ) );
 	dict->num_words = N_WORDS;
-	dict->words = malloc( dict->num_words * sizeof( char *) );
+	dict->words = malloc( N_WORDS * sizeof( char *) );
 	assert( dict->words != NULL);
 	Dict_Set( file );
 }
