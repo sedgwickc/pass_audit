@@ -63,7 +63,7 @@ void Pass_Crack( char *hash_in )
 	md5_res = NULL;
 	md5_data.initialized = 0;
 	printf( "%s:", hash_in );
-	for( int i = 0; i < dict->num_words; i++ )
+	for(long int i = 0; i < dict->num_words; i++ )
 	{
 		if( hash_in[1] == '1' )
 		{
@@ -83,7 +83,7 @@ void Pass_Crack( char *hash_in )
 		}
 		if( strncmp( hash_in, hash_out, BCRYPT_HASHSIZE ) == 0 )
 		{
-			printf( "%s", dict->words[i] );
+			printf( "%s\n", dict->words[i] );
 			return;
 		}
 	}
@@ -112,6 +112,7 @@ void Dict_Set( char *file )
 
 	int fd, status, offset = 0, word_ptrs, word_cnt;
 	char *data_dict, word[S_WORD];
+	void *tmp;
 	struct stat s_dict;
 
 	fd = open(file, O_RDONLY | O_RSYNC );
@@ -132,20 +133,22 @@ void Dict_Set( char *file )
 	while(  sscanf(data_dict, "%s\n%n", word, &offset) != EOF )
 	{
 		data_dict += offset;
-		if( word_cnt >= dict->num_words )
-		{
-			word_ptrs += N_WORDS;
-			dict->words = realloc( dict->words, word_ptrs );
-			assert( dict->words != NULL );
-		}
 		
+		if( word_cnt == word_ptrs - 1 )
+		{
+			tmp = realloc( dict->words, (word_ptrs + N_WORDS) * sizeof( char * ) );
+			assert( tmp != NULL );
+			dict->words = tmp;
+			word_ptrs += N_WORDS; 
+		}
+
 		dict->words[word_cnt] = calloc( S_WORD, sizeof( char ) );
 		assert( dict->words[word_cnt] != NULL);
 		strncpy( dict->words[word_cnt], word, S_WORD );
 		word_cnt++;
+		
 	}
 	dict->num_words = word_cnt;
-
 }
 
 Dict *Dict_Get()

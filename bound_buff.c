@@ -114,7 +114,7 @@ void *consume(void *arg){
 		buff_get( &hashes );
 		sem_post ( &mutex );
 		sem_post( &empty );
-		if( pdone > 0 )//strncmp( hashes[0], "DONE", S_HASH ) == 0)
+		if( pdone > 0 || strncmp( hashes[0], "DONE", S_HASH ) == 0)
 		{
 			Hashes_Free( &hashes );		
 			return NULL;
@@ -133,7 +133,6 @@ void *consume(void *arg){
 void buff_proc( Hashes *data ){
 	for( int i = 0; i < N_HASHES; i++ ){
 		Pass_Crack( (*data)[i] );
-		// calc hash and compare, print password if found
 	}
 }
 

@@ -14,7 +14,7 @@ int main( int argc, char *argv[] ){
 	memset(hash_out, 0, BCRYPT_HASHSIZE);
 	
 	if( argc != 2 ){
-		printf("Usage: bcrypt_hash PASSWORD EXP_HASH\n");
+		printf("Usage: bcrypt_hash PASSWORD\n");
 		return 1;
 	}
 
