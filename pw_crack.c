@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <getopt.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -25,6 +26,7 @@
 int main(int argc, char* argv[])
 {
 	int fd_hashes, status, offset, i, ret;
+	int num_workers = 0, opt;
 	char *hash = calloc ( S_HASH, sizeof( char ) );
 	char *data_hash;
 	struct stat s_hashes;
@@ -32,16 +34,40 @@ int main(int argc, char* argv[])
 	char *fn_hashes = calloc (S_FPATH, sizeof(char) );
 	Hashes hashes = NULL;
 	Hashes_Init( &hashes );
-	Dict_Init( argv[1] );
 	
-	pthread_t workers[N_WORKERS];
-	buff_init( N_WORKERS );
+	/* getopt code based off of example code found in getopt man page */
+	while( (opt = getopt(argc, argv, "n:")) != -1 ){
+		switch (opt){
+			case 'n':
+				if( (num_workers = atoi(optarg)) > 0 ){
+#ifdef DEBUG
+					printf("Running with %d workers.", num_workers );
+#endif
+				} else {
+					printf("Cannot have 0 workers\n");
+					return 1;
+				}
+				break;
+			default:
+				break;
+		}
+	}
+
+	if( num_workers <= 0 )
+	{
+		num_workers = N_WORKERS;
+	}
+	
+	pthread_t workers[num_workers];
+	buff_init( num_workers );
 	for( int j = 0; j < num_workers; j++)
 	{
 		workers[j] = buff_add_worker( (long)j );
 	}
+	
+	Dict_Init( argv[optind] );
 
-	strncpy( fn_hashes, argv[2], S_FPATH );
+	strncpy( fn_hashes, argv[optind + 1], S_FPATH );
 
 	fd_hashes = open(fn_hashes, O_RDONLY );
 	assert( fd_hashes != -1);
@@ -70,6 +96,7 @@ int main(int argc, char* argv[])
 		{
 			i = 0;
 			produce( &hashes );
+			Hashes_Clear( &hashes );
 		}
 	}
 

@@ -1,4 +1,4 @@
-#include "bcrypt/bcrypt.h"
+#include "../bcrypt/bcrypt.h"
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
@@ -20,7 +20,7 @@ int main( int argc, char *argv[] ){
 
 	strncpy( pass, argv[1], 20);
 	
-	hash_in = "$2a$10$uZwdAFMnERmvWgkS9ce/z.rFUcsQjYmv0hAP2FfPeTaWwqVIS8JDm";
+	hash_in = "$2a$12$EepYTZTtUXlclRDfqKLWd.4Zzj4UpPqjP/uTQeoLAPD8qBNSbte16"
 	
 	ret = bcrypt_hashpw( pass, hash_in, hash_out );
 	assert( ret == 0 );

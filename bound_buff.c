@@ -20,7 +20,7 @@
 
 Hashes *buffer;
 Thread **workers;
-int num_workers;
+static int num_workers;
 char *log_mess;
 int fillptr;
 int useptr; 
@@ -63,7 +63,6 @@ int buff_init(int nw){
 	
 	fillptr = 0;
 	useptr = 0;
-	numfill = 0;
 	pdone = 0;
 	return 0;
 }
@@ -78,20 +77,13 @@ pthread_t buff_add_worker(long index){
 void buff_fill(Hashes *data){
 	assert( data != NULL);
 	Hashes_Copy( &(buffer[fillptr]), data );
-			for( int h = 0; h < N_HASHES; h++ )
-			{
-				printf(" [%d] %s\n", h, (*data)[h] );
-			}
-	numfill++;
 	fillptr = (fillptr + 1) % S_BBUFF;
 }
 
-// buffer not getting hashes?
 void buff_get(Hashes *data){
 	assert( data != NULL);
 	Hashes_Copy( data, &buffer[useptr] );
 	useptr = (useptr + 1) % S_BBUFF;
-	numfill--;
 }
 
 void produce(Hashes *data){
@@ -114,17 +106,13 @@ void *consume(void *arg){
 		buff_get( &hashes );
 		sem_post ( &mutex );
 		sem_post( &empty );
-		if( pdone > 0 || strncmp( hashes[0], "DONE", S_HASH ) == 0)
+		if( strncmp( hashes[0], "DONE", S_HASH ) == 0)
 		{
 			Hashes_Free( &hashes );		
 			return NULL;
 		}
 		buff_proc( &hashes );
-		workers[(long)arg]->num_hashes++;
-#ifdef DEBUG
-		printf("t_index: %ld, hash_no: %d\n", (long)arg, workers[(long)arg]->num_hashes);
-#endif
-
+		Hashes_Clear( &hashes );
 	}
 	Hashes_Free( &hashes );		
 	return NULL;
@@ -132,11 +120,15 @@ void *consume(void *arg){
 
 void buff_proc( Hashes *data ){
 	for( int i = 0; i < N_HASHES; i++ ){
-		Pass_Crack( (*data)[i] );
+		if( (*data)[i] != NULL && strlen( (*data)[i] ) != 0 ){
+			Pass_Crack( (*data)[i] );
+		}
 	}
 }
 
 void buff_pdone(){
+	
+	
 	Hashes done = NULL;
 	Hashes_Init( &done );
 
@@ -144,16 +136,14 @@ void buff_pdone(){
 		strncpy(done[i], "DONE", S_HASH);
 	}
 
-	sem_wait( &empty );
 	for(int i = 0; i < S_BBUFF; i++){
 		produce( &done );
-		sem_post( &full );
 	}
 
-	sem_wait( &mutex );
+	/*sem_wait( &mutex );
 	pdone++;
 	sem_post( &mutex );
-
+	*/
 	Hashes_Free( &done );
 }
 

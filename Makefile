@@ -2,7 +2,7 @@ CC=gcc
 
 CFLAGS= -g -Wall -std=c99 -DMEMWATCH -DMW_STDIO -DMW_PTHREADS -c
 
-CFLAGS_DEBUG=-Wall -std=c99 -c -g -DDEBUG 
+CFLAGS_DEBUG=-Wall -std=c99 -DMEMWATCH -DMW_STDIO -c -g -DDEBUG 
 
 CFLAGS_LINK=-lcrypt -pthread
 
@@ -18,7 +18,7 @@ bcrypt_hash: blowfish.o bcrypt.o bcrypt_hash.o bcrypt/bcrypt.a
 bcrypt_verify: blowfish.o bcrypt.o bcrypt_verify.o bcrypt/bcrypt.a
 	$(CC) $^ -o $@
 
-pw_crack_debug: pw_crack_db.o pass_audit_db.o bound_buff_db.o blowfish.o bcrypt.o bcrypt/bcrypt.a 
+pw_crack_debug: pw_crack_db.o pass_audit_db.o bound_buff_db.o memwatch.o blowfish.o bcrypt.o bcrypt/bcrypt.a 
 	$(CC) $(CFLAGS_LINK) $^ -o $@
 
 pw_crack: pw_crack.o memwatch.o

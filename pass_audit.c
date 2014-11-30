@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -25,6 +26,14 @@ void Hashes_Init( Hashes *h )
 	}
 }
 
+void Hashes_Clear( Hashes *h )
+{
+	for( int i = 0; i < N_HASHES; i++ )
+	{
+		memset( (*h)[i], 0, S_HASH );
+	}
+}
+
 void Hashes_Free( Hashes *h )
 {
 	for(int i = 0; i < N_HASHES; i++ )
@@ -42,52 +51,84 @@ void Hashes_Copy( Hashes *dest, Hashes *src )
 	}
 }
 
-void Pass_Crack( char *hash_in )
+void Pass_Crack( char *h_in )
 {
 	if( dict == NULL )
 	{
 		printf( "ERROR: Dictionary not initialized. Terminating...\n" );
 		return;
 	}
-	else if( strlen( hash_in ) == 0 )
+	else if( h_in == NULL || strlen( h_in ) == 0 )
 	{
+		printf( "ERROR: Hash empty or NULL.\n" );
 		return;
 	}
 
-	char hash_out[BCRYPT_HASHSIZE];
-	char *md5_res;
-	struct crypt_data md5_data;
+	char hash_out[BCRYPT_HASHSIZE + 1];
+	char hash_in[BCRYPT_HASHSIZE + 1];
 	int ret;
-	memset(hash_out, 0, BCRYPT_HASHSIZE);
 	
-	md5_res = NULL;
-	md5_data.initialized = 0;
-	printf( "%s:", hash_in );
-	for(long int i = 0; i < dict->num_words; i++ )
+	memset( hash_out, '\0', BCRYPT_HASHSIZE + 1 );
+	memset( hash_in, '\0', BCRYPT_HASHSIZE + 1 );
+	strncpy( hash_in, h_in, BCRYPT_HASHSIZE );
+	
+
+	if( hash_in[1] == '1' )
 	{
-		if( hash_in[1] == '1' )
+
+		char *openssl_cmd = "openssl passwd -1 -salt ";
+		size_t s_cmd =  sizeof( openssl_cmd ) + S_HASH + S_WORD;
+		char *popen_cmd = calloc( s_cmd, sizeof( char ) );
+		char *salt = NULL, *save_ptr, *eol;
+		FILE *fp = NULL;
+
+		strtok_r( hash_in, "$", &save_ptr );
+		salt = strtok_r( save_ptr, "$", &save_ptr );
+		assert( salt != NULL );
+
+		/* strtok_r removes the delimiter from the string you pass it causing
+		 * the strncmp below to fail when the password is found thus hash_in has
+		 * to be reset
+		 */
+		strncpy( hash_in, h_in, BCRYPT_HASHSIZE );
+		for(long int i = 0; i < dict->num_words; i++ )
 		{
-			/*
-			md5_res = crypt_r( word, hash_in, &md5_data );
-			assert( md5_res != NULL );
-			printf("%s\n", md5_res);
-			memset( hash_out, 0, BCRYPT_HASHSIZE );
-			strncpy( hash_out, md5_res, BCRYPT_HASHSIZE );
-			*/
-			strncpy( hash_out, "filler", BCRYPT_HASHSIZE );
+			ret = snprintf(popen_cmd, s_cmd, "openssl passwd -1 -salt %s \"%s\"", 
+					salt, dict->words[i]);
+			assert( ret <= s_cmd );
+			fp = popen( popen_cmd, "r");
+			fread( hash_out, sizeof( char ), BCRYPT_HASHSIZE, fp );
+			if( ( eol = strchr( hash_out, '\n' ) ) != NULL )
+			{
+				*eol = '\0';
+			}
+			ret = pclose( fp );
+			assert( ret != -1 );
+			
+			if( strncmp( hash_in, hash_out, BCRYPT_HASHSIZE ) == 0 )
+			{
+				free( popen_cmd );
+				printf( "%s:%s\n",hash_in, dict->words[i] );
+				return;
+			}
 		}
-		else if( hash_in[1] == '2' && hash_in[2] == 'a' )
+	}
+	else if( hash_in[1] == '2' && hash_in[2] == 'a' )
+	{
+		for(long int i = 0; i < dict->num_words; i++ )
 		{
 			ret = bcrypt_hashpw( dict->words[i], hash_in, hash_out );
 			assert( ret == 0 );
-		}
-		if( strncmp( hash_in, hash_out, BCRYPT_HASHSIZE ) == 0 )
-		{
-			printf( "%s\n", dict->words[i] );
-			return;
+			
+			if( strncmp( hash_in, hash_out, BCRYPT_HASHSIZE ) == 0 )
+			{
+				printf( "%s:%s\n", hash_in, dict->words[i] );
+				return;
+			}
 		}
 	}
-	printf( "\n" );
+	
+	printf( "%s:\n", hash_in );
 }
 
 void Dict_Init( char *file )
@@ -142,7 +183,7 @@ void Dict_Set( char *file )
 			word_ptrs += N_WORDS; 
 		}
 
-		dict->words[word_cnt] = calloc( S_WORD, sizeof( char ) );
+		dict->words[word_cnt] = calloc( S_WORD + 1, sizeof( char ) );
 		assert( dict->words[word_cnt] != NULL);
 		strncpy( dict->words[word_cnt], word, S_WORD );
 		word_cnt++;

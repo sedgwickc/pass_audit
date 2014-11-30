@@ -1,4 +1,4 @@
-#include "bcrypt/bcrypt.h"
+#include "../bcrypt/bcrypt.h"
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>

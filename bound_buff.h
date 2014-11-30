@@ -6,7 +6,7 @@
  * References:
  * http://beej.us/guide/bgipc/output/html/multipage/semaphores.html
  */
-#define _XOPEN_SOURCE 699 
+//#define _XOPEN_SOURCE 699 
 #define S_BBUFF 50
 #define S_FPATH 64
 #define N_WORKERS 5
@@ -29,7 +29,6 @@ typedef struct {
 
 extern Hashes *buffer;
 extern Thread **threads;
-extern int num_workers;
 extern int fillptr;
 extern int useptr;
 extern int numfill;
