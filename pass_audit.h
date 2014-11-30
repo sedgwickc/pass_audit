@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#define N_HASHES 5 
+#define N_HASHES 1 
 #define S_FPATH 64
 #define S_HASH 64
 #define S_WORD 80
@@ -21,9 +21,9 @@ void Hashes_Init( Hashes *h );
 void Hashes_Clear( Hashes *h );
 void Hashes_Free( Hashes *h );
 void Hashes_Copy( Hashes *src, Hashes *dest );
-void Pass_Crack( char *hash );
+void Pass_Crack( char *hash, char **res );
 void Dict_Init( char *file );
-void Dict_Set( char *file );
+void Dict_Fill( char *file );
 Dict *Dict_Get();
 void Dict_Free();
 #endif

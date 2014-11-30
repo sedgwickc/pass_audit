@@ -1,0 +1,26 @@
+Charles Sedgwick
+1684807
+
+PW_Crack Overview
+-------------------
+
+Commands
+--------
+
+make: will build PW_Crack without debugging 
+
+make all: same as make
+
+make pw_crack: same as make
+
+make debug: will build pw_crack with debugging set
+-> there will be extra info printed to the log and STDOUT
+
+make clean: will remove  *.o and executable files from build directory
+
+pw_crack[_debug] -n NUM WORDS HASHES: will execute FSchecksum. 
+-> NUM, WORDS and FILE are not optional. 
+-> If NUM is not greater than zero a default value is used (5)
+-> if WORD or HASHES are not valid files, PW_Crack will exit in with an error. 
+-> The NUM argument represents the number of
+   worker threads that pw_crack will create 

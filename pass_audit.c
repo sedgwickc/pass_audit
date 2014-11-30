@@ -51,7 +51,7 @@ void Hashes_Copy( Hashes *dest, Hashes *src )
 	}
 }
 
-void Pass_Crack( char *h_in )
+void Pass_Crack( char *h_in, char **res )
 {
 	if( dict == NULL )
 	{
@@ -66,6 +66,9 @@ void Pass_Crack( char *h_in )
 
 	char hash_out[BCRYPT_HASHSIZE + 1];
 	char hash_in[BCRYPT_HASHSIZE + 1];
+	int s_res = S_WORD + S_HASH + 1;
+	*res = calloc( s_res, sizeof( char ) );
+	assert( *res != NULL );
 	int ret;
 	
 	memset( hash_out, '\0', BCRYPT_HASHSIZE + 1 );
@@ -108,7 +111,7 @@ void Pass_Crack( char *h_in )
 			if( strncmp( hash_in, hash_out, BCRYPT_HASHSIZE ) == 0 )
 			{
 				free( popen_cmd );
-				printf( "%s:%s\n",hash_in, dict->words[i] );
+				snprintf( *res, S_WORD + S_HASH + 1, "%s:%s", hash_in, dict->words[i] );
 				return;
 			}
 		}
@@ -122,13 +125,12 @@ void Pass_Crack( char *h_in )
 			
 			if( strncmp( hash_in, hash_out, BCRYPT_HASHSIZE ) == 0 )
 			{
-				printf( "%s:%s\n", hash_in, dict->words[i] );
+				snprintf( *res, S_WORD + S_HASH + 1, "%s:%s", hash_in, dict->words[i] );
 				return;
 			}
 		}
 	}
-	
-	printf( "%s:\n", hash_in );
+	snprintf( *res, S_WORD + S_HASH + 1, "%s:", hash_in );
 }
 
 void Dict_Init( char *file )
@@ -140,10 +142,10 @@ void Dict_Init( char *file )
 	dict->num_words = N_WORDS;
 	dict->words = malloc( N_WORDS * sizeof( char *) );
 	assert( dict->words != NULL);
-	Dict_Set( file );
+	Dict_Fill( file );
 }
 
-void Dict_Set( char *file )
+void Dict_Fill( char *file )
 {
 	if( dict == NULL )
 	{

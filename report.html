@@ -3,9 +3,11 @@
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/>
 	<title></title>
-	<meta name="generator" content="LibreOffice 4.3.3.2 (Linux)"/>
+	<meta name="generator" content="LibreOffice 4.3.2.2.0 (Linux)"/>
 	<meta name="created" content="00:00:00"/>
-	<meta name="changed" content="2014-11-24T19:57:41.492742620"/>
+	<meta name="changed" content="2014-11-30T23:44:28.902795844"/>
+	<meta name="created" content="00:00:00">
+	<meta name="changed" content="2014-11-24T19:57:41.492742620">
 	<meta name="created" content="00:00:00">
 	<meta name="changed" content="2014-11-20T23:05:20.607577488">
 	<meta name="created" content="00:00:00">
@@ -18,12 +20,18 @@
 		@page { margin: 0.79in }
 		p { margin-bottom: 0.1in; color: #000000; line-height: 120% }
 		h2 { color: #000000 }
-		a:link { so-language: zxx }
+		a:link { so-language: en-US }
 	</style>
 </head>
 <body lang="en-CA" text="#000000" dir="ltr" style="background: transparent">
-<h2 align="center" style="font-variant: normal; letter-spacing: normal; font-style: normal">
+<h2 align="center" style="margin-top: 0in; margin-bottom: 0in; font-variant: normal; letter-spacing: normal; font-style: normal">
 <font face="Bitstream Vera Sans, sans-serif">Password auditor/cracker</font></h2>
+<p align="center" style="margin-bottom: 0in; font-variant: normal; letter-spacing: normal; font-style: normal">
+<font face="Bitstream Vera Sans, sans-serif">Charles Sedgwick</font></p>
+<p align="center" style="margin-bottom: 0in; font-variant: normal; letter-spacing: normal; font-style: normal">
+<font face="Bitstream Vera Sans, sans-serif">CMPT360F14</font></p>
+<p align="center" style="margin-bottom: 0in; font-variant: normal; letter-spacing: normal; font-style: normal">
+<font face="Bitstream Vera Sans, sans-serif">Dr. Cam MacDonnell</font></p>
 <p align="center"><br/>
 <br/>
 
@@ -32,7 +40,7 @@
 <font face="Bitstream Vera Sans, sans-serif"><font size="4" style="font-size: 14pt">Overview</font></font></p>
 <p align="left" style="font-variant: normal; letter-spacing: normal; font-style: normal">
 <font face="Bitstream Vera Sans, sans-serif">The goal of the pw_crack
-program is to compare the hashes of a common dictionary words to the
+program is to compare the hashes of common dictionary words to the
 hashes of passwords currently in use in order to ensure the passwords
 are strong. </font>
 </p>
@@ -44,49 +52,121 @@ in the provided text file, pw_crack compares it to the hash of each
 dictionary word in the provided dictionary file. This behaviour lends
 itself to being implemented as a bounded buffer. Hashes are loaded in
 to the buffer by producers and consumers take untouched hashes and
-'consume' them by comparing it to the hashes of the dictionary words.
-</font>
+'consume' them by creating hashes from a dictionary and comparing
+them to the hashes grabbed from the buffer in hopes of finding a
+match. </font>
 </p>
 <p align="left" style="font-variant: normal; letter-spacing: normal; font-style: normal">
-<font face="Bitstream Vera Sans, sans-serif">Since pw_crack only
-deals with each hash for the length of time it takes to make the
-comparisons, it is not necessary that a new process is created to do
-the required work. In fact, we want consumers to easily be able
+<font face="Bitstream Vera Sans, sans-serif">The expected concurrent
+behaviour of pw_crack consumers can be achieved using threads thus
+saving the overhead of creating a completly new address space for
+each consumer along with pipes. We want consumers to easily be able
 finish their work on one hash and move onto another. This behaviour
 is best achieved by using threads rather than processes as
 communication and resource sharing between threads is easier to
-achieve compared to processes. </font>
+achieve and manage compared to processes. </font>
+</p>
+<p align="left" style="font-variant: normal; letter-spacing: normal; font-style: normal">
+<font face="Bitstream Vera Sans, sans-serif">Three abstractions were
+created to simplify the programming and conceptualizing what is going
+on in the code. These abstraction are defined by the following API's:
+bounded_buffer, Hashes, and Dict. Bounded_buffer is responsible for
+facilitating everything to do with achieving the expected concurrent
+producer-consumers behavior. Hashes are loaded into an array one by
+one. Consumers grab a hashes waiting to be consumed and attempt to
+find a matching hash from a dictionary of words. In order to ensure
+that the results of the consumer's attempt are printed out in the
+order the hashes were found in the file, a ticket spinlock is used. </font>
+</p>
+<p align="left" style="font-variant: normal; letter-spacing: normal; font-style: normal">
+<font face="Bitstream Vera Sans, sans-serif">Hashes contains the
+interface used to controll how many hashes are stored in each buffer
+element. The elements of the buffer are arrays of hashes however
+imolementation of the ticket lock currently prevents the array size
+to be greaer than 1. By the time this limitation was discovered,
+there was not enough time to properly refactor the code. </font>
+</p>
+<p align="left" style="font-variant: normal; letter-spacing: normal; font-style: normal">
+<font face="Bitstream Vera Sans, sans-serif">Finally, the Dict
+interface contains the functions required to load the words from a
+supplied file into an array. This approach to accessing the words is
+preferred over inccurring the overhead of constantly rereading the
+file containing the words. </font>
 </p>
 <p style="margin-top: 0.17in; margin-bottom: 0.08in; line-height: 100%; page-break-after: avoid">
 <font face="DejaVu Sans, sans-serif"><font size="4" style="font-size: 14pt">Implementation
 </font></font>
 </p>
-<p style="margin-top: 0.17in; margin-bottom: 0.08in; line-height: 100%">
-<font face="DejaVu Sans, sans-serif"><font size="4" style="font-size: 14pt">concurrency
-between consumer threads achieved via semaphores</font></font></p>
-<p style="margin-top: 0.17in; margin-bottom: 0.08in; line-height: 100%">
-<font face="DejaVu Sans, sans-serif"><font size="4" style="font-size: 14pt">ran
-into type overflow when looping through dictionary. The integer type
-wasn't big enough as it only stores up to 32,767. A long integer had
-to be used which stores up to <span style="font-variant: normal"><font color="#000000"><font face="DejaVu Sans, sans-serif"><span style="letter-spacing: normal"><span style="font-style: normal"><span style="font-weight: normal">2147483647</span></span></span></font></font></span><span style="font-variant: normal"><font color="#000000"><font face="sans-serif"><font size="2" style="font-size: 10pt"><span style="letter-spacing: normal"><span style="font-style: normal"><span style="font-weight: normal">.</span></span></span></font></font></font></span></font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; font-weight: normal; line-height: 100%">
+<font face="DejaVu Sans, sans-serif"><font size="3" style="font-size: 12pt">To
+achieve concurrency in the bounded buffer, Semaphores were used based
+on the example in OSTEP. Semaphores were also used to implemented the
+ticket spinlock governing the order that the results are printed out
+in.</font></font></p>
 <p style="margin-top: 0.17in; margin-bottom: 0.08in; line-height: 100%; page-break-after: avoid">
 <font face="DejaVu Sans, sans-serif"><font size="4" style="font-size: 14pt">Testing</font></font></p>
-<p style="margin-bottom: 0in; border: 1px solid #000000; padding: 0.02in; line-height: 100%">
-<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">[cwick
-~/Dropbox/School/CMPT360OS/cmpt360f14/assign3]$ wc -l
-/usr/share/cracklib/cracklib-small </font></font>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; line-height: 100%">
+<font face="DejaVu Sans, sans-serif"><font size="3" style="font-size: 12pt">When
+using realloc with memwatch compiled into the code and the
+-DMW_PTHREADS flag defined, pw_crack hangs when initializing the
+dictionary. I traced this hang in gdb and found that memwatch gets
+stuck waiting for it's global lock when trying to malloc the new
+larger memory space for the dictionary. Tracing through the functions
+listed in the call stack below, I found that when memwatch enters
+mwRealloc, it grabs a global lock and attempts to resize the
+specified memory using mwMalloc. However, when mwMalloc is called it
+attempts to grab the same lock before allocating any memory. Since
+mwRealloc holds the lock, mwMAlloc is stuck waiting for it. Since
+this all occurs in the same thread, mwMalloc will never get the lock.
+One solution would be to disable the thread-safe functinality enabled
+by the flag -DMW_PTHREADS but this would lead to issues when threads
+start allocating and deallocating memory as seen in assignment 2.
+Another solution is to not use realloc but rather get the same
+behaviour using malloc in order to avoid Memwatch calling mwRealloc.
+Due to time constraints, the -DMW_PTHREADS flag was left undefined. </font></font>
 </p>
-<p style="margin-bottom: 0in; border: 1px solid #000000; padding: 0.02in; line-height: 100%">
-<br/>
-
-</p>
-<p style="margin-bottom: 0in; border: 1px solid #000000; padding: 0.02in; line-height: 100%">
-<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">52875
-/usr/share/cracklib/cracklib-small</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; line-height: 100%">
+<font face="DejaVu Sans, sans-serif"><font size="3" style="font-size: 12pt">GDB
+stack trace 1:</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; border: none; padding: 0in; line-height: 100%">
+<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">(gdb)
+where</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; border: none; padding: 0in; line-height: 100%">
+<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">#0
+ 0x00007ffff799610c in __lll_lock_wait () from
+/usr/lib/libpthread.so.0</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; border: none; padding: 0in; line-height: 100%">
+<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">#1
+ 0x00007ffff7990885 in pthread_mutex_lock () from
+/usr/lib/libpthread.so.0</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; border: none; padding: 0in; line-height: 100%">
+<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">#2
+ 0x000000000040812d in mwMutexLock () at memwatch.c:2556</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; border: none; padding: 0in; line-height: 100%">
+<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">#3
+ 0x0000000000403e6e in mwMalloc (size=16000, file=0x40b0d0
+&quot;pass_audit.c&quot;, line=180) at memwatch.c:871</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; border: none; padding: 0in; line-height: 100%">
+<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">#4
+ 0x00000000004043d0 in mwRealloc (p=0x61dcc0, size=16000,
+file=0x40b0d0 &quot;pass_audit.c&quot;, line=180) at memwatch.c:990</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; border: none; padding: 0in; line-height: 100%">
+<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">#5
+ 0x00000000004025c0 in Dict_Fill (file=0x7fffffffec88
+&quot;test/words_ab.txt&quot;) at pass_audit.c:180</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; border: none; padding: 0in; line-height: 100%">
+<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">#6
+ 0x0000000000402452 in Dict_Init (file=0x7fffffffec88
+&quot;test/words_ab.txt&quot;) at pass_audit.c:143</font></font></p>
+<p style="margin-top: 0.17in; margin-bottom: 0.08in; border: none; padding: 0in; line-height: 100%">
+<font face="Bitstream Vera Sans Mono, monospace"><font size="2" style="font-size: 11pt">#7
+ 0x0000000000401b69 in main (argc=5, argv=0x7fffffffe9c8) at
+pw_crack.c:68</font></font></p>
 <p style="margin-top: 0.17in; margin-bottom: 0.08in; line-height: 100%">
 <font face="DejaVu Sans, sans-serif"><font size="4" style="font-size: 14pt">References</font></font></p>
 <p style="margin-top: 0.17in; margin-bottom: 0.08in; line-height: 100%">
-<font face="DejaVu Sans, sans-serif"><font size="4" style="font-size: 14pt">https://www.openssl.org/docs/crypto/md5.html#</font></font></p>
+<font face="DejaVu Sans, sans-serif"><font size="4" style="font-size: 14pt">Operating
+Systems: Three Easy Pieces (OSTEP)</font></font></p>
 <p style="margin-bottom: 0in; line-height: 100%"><br/>
 
 </p>

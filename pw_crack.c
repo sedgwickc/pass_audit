@@ -53,6 +53,8 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	Dict_Init( argv[optind] );
+
 	if( num_workers <= 0 )
 	{
 		num_workers = N_WORKERS;
@@ -64,8 +66,6 @@ int main(int argc, char* argv[])
 	{
 		workers[j] = buff_add_worker( (long)j );
 	}
-	
-	Dict_Init( argv[optind] );
 
 	strncpy( fn_hashes, argv[optind + 1], S_FPATH );
 

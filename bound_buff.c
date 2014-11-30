@@ -20,24 +20,28 @@
 
 Hashes *buffer;
 Thread **workers;
+Tic_Lock *tic_print;
 static int num_workers;
 char *log_mess;
 int fillptr;
 int useptr; 
 int numfill;
-int pdone;
 
 sem_t empty; 
 sem_t full; 
 sem_t mutex;
+sem_t mutex_tic;
 
 int buff_init(int nw){
 
 	num_workers = (int)nw;
 	
-	sem_init( &empty, 0, S_BBUFF ); // S_BBUFF buffers are empty to begin with...
-	sem_init( &full, 0, 0 ); //  0 are full
-	sem_init( &mutex, 0, 1 ); // mutex=1 because it is a lock
+	sem_init( &empty, 0, S_BBUFF ); 
+	sem_init( &full, 0, 0 );
+	sem_init( &mutex, 0, 1 );
+	sem_init( &mutex_tic, 0, 1 );
+
+	buff_tic_init();
 
 	buffer = malloc( sizeof ( Hashes ) * S_BBUFF );
 	assert( buffer != NULL );
@@ -58,12 +62,10 @@ int buff_init(int nw){
 		workers[i] = malloc( sizeof(Thread) );
 		assert( workers[i] != NULL );
 
-		workers[i]->num_hashes = 0;
 	}
 	
 	fillptr = 0;
 	useptr = 0;
-	pdone = 0;
 	return 0;
 }
 
@@ -80,8 +82,9 @@ void buff_fill(Hashes *data){
 	fillptr = (fillptr + 1) % S_BBUFF;
 }
 
-void buff_get(Hashes *data){
+void buff_get(Hashes *data, int *turn){
 	assert( data != NULL);
+	*turn = buff_tic_turn();
 	Hashes_Copy( data, &buffer[useptr] );
 	useptr = (useptr + 1) % S_BBUFF;
 }
@@ -94,8 +97,9 @@ void produce(Hashes *data){
 	sem_post( &full );
 }
 
-//race condition: consumers get stuck waiting
 void *consume(void *arg){
+
+	int turn;
 
 	Hashes hashes = NULL;
 	Hashes_Init( &hashes );	
@@ -103,7 +107,7 @@ void *consume(void *arg){
 	while( 1 ){
 		sem_wait ( &full );
 		sem_wait ( &mutex );
-		buff_get( &hashes );
+		buff_get( &hashes, &turn );
 		sem_post ( &mutex );
 		sem_post( &empty );
 		if( strncmp( hashes[0], "DONE", S_HASH ) == 0)
@@ -111,24 +115,32 @@ void *consume(void *arg){
 			Hashes_Free( &hashes );		
 			return NULL;
 		}
-		buff_proc( &hashes );
+		buff_proc( &hashes, &turn );
 		Hashes_Clear( &hashes );
 	}
 	Hashes_Free( &hashes );		
 	return NULL;
 }
 
-void buff_proc( Hashes *data ){
+void buff_proc( Hashes *data, int *turn )
+{
+	assert( data != NULL );
+	assert( turn != NULL );
+	char *res = NULL;
 	for( int i = 0; i < N_HASHES; i++ ){
 		if( (*data)[i] != NULL && strlen( (*data)[i] ) != 0 ){
-			Pass_Crack( (*data)[i] );
+			Pass_Crack( (*data)[i], &res );
+			assert( res != NULL );
+			buff_tic_lock( turn );
+			printf( "%s\n", res );
+			buff_tic_unlock();
+			free( res );
 		}
 	}
 }
 
-void buff_pdone(){
-	
-	
+void buff_pdone()
+{	
 	Hashes done = NULL;
 	Hashes_Init( &done );
 
@@ -140,15 +152,11 @@ void buff_pdone(){
 		produce( &done );
 	}
 
-	/*sem_wait( &mutex );
-	pdone++;
-	sem_post( &mutex );
-	*/
 	Hashes_Free( &done );
 }
 
-void buff_free(){
-	
+void buff_free()
+{
 	sem_destroy( &full );
 	sem_destroy( &empty );
 	sem_destroy( &mutex );
@@ -164,6 +172,41 @@ void buff_free(){
 	for( int i = 0; i < num_workers; i++ ){
 		free(workers[i]);
 	}
-	
+	free( tic_print );
 	free( workers );
+}
+
+void buff_tic_init()
+{
+	tic_print = malloc( sizeof( Tic_Lock ) );
+	assert( tic_print != NULL );
+	tic_print->turn = 0;
+	tic_print->ticket = 0;
+}
+
+int buff_tic_turn()
+{
+	int my_turn = fetch_add( &tic_print->ticket );
+	return my_turn;
+}
+
+void buff_tic_lock(  int *t )
+{
+	while ( *t != tic_print->turn )
+		;
+}
+
+void buff_tic_unlock()
+{
+	fetch_add( &tic_print->turn );
+}
+
+int fetch_add( int *ptr )
+{
+	sem_wait( &mutex_tic );
+	int old = *ptr;
+	*ptr = old + 1;
+	sem_post( &mutex_tic );
+
+	return old;
 }
